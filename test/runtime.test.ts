@@ -17,6 +17,9 @@ describe('runtime fallbacks', () => {
     const key = await s.importKey('raw', new Uint8Array([1, 2, 3]), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
     const mac = new Uint8Array(await s.sign('HMAC', key, new TextEncoder().encode('x')));
     expect(mac).toHaveLength(32);
-    expect(await subtle()).toBe(globalThis.crypto.subtle);
+    // Node 19+ exposes WebCrypto globally; Node 18 does not and uses the fallback.
+    const global = (globalThis as { crypto?: { subtle?: unknown } }).crypto?.subtle;
+    if (global) expect(await subtle()).toBe(global);
+    else expect(await subtle()).toBeDefined();
   });
 });
