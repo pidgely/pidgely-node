@@ -7,7 +7,7 @@ const esm = await import('../dist/index.js');
 
 for (const [name, mod] of [['cjs', cjs], ['esm', esm]]) {
   const client = new mod.Pidgely('pdg_smoke');
-  for (const resource of ['emails', 'batch', 'domains', 'apiKeys', 'contacts', 'segments', 'audiences', 'broadcasts', 'templates', 'webhooks', 'suppressions']) {
+  for (const resource of ['emails', 'batch', 'domains', 'apiKeys', 'contacts', 'segments', 'audiences', 'broadcasts', 'templates', 'templateBuilder', 'brand', 'webhooks', 'suppressions', 'usage']) {
     if (!client[resource]) throw new Error(`${name}: missing ${resource}`);
   }
   if (typeof mod.verifyWebhook !== 'function') throw new Error(`${name}: missing verifyWebhook`);

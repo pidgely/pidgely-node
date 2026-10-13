@@ -11,6 +11,12 @@ All notable changes to this project are documented here. The format follows
 - `templates.preview(idOrAlias, { variables })` renders a template draft with variables (`POST /templates/{id_or_alias}/preview`) and returns a `TemplatePreview`.
 - `contacts.batch({ contacts, segmentId })` creates or updates up to 1,000 contacts in one request (`POST /contacts/batch`) and returns a `ContactBatchResult`; invalid rows are reported in `errors` with their index.
 - Types `PreviewTemplateOptions`, `TemplatePreview`, `BatchContactsOptions`, `ContactInput` and `ContactBatchResult`.
+- `templateBuilder` (Scale plan): `capabilities()`, `getTheme()`, `updateTheme({ theme, brand })`, `render({ document, subject })` and `convert({ html })`, plus AI assist in `templateBuilder.ai`: `generate`, `rewrite`, `translate` and `subjects`.
+- `templates.create/update` accept a visual builder document as `builder` (`null` detaches it).
+- `brand.import({ url, apply, ai, language })` reads a website and proposes a theme and brand profile (`POST /brand/import`).
+- `domains.dnsProvider(id)` and `domains.setupCloudflare(id, { apiToken })` for automatic DNS setup; the token is used for one request and never stored.
+- `usage.get()` returns today's usage, the daily quota and the account status (`GET /v1/usage`).
+- Types `BuilderDocument`, `BuilderBlock`, `BuilderTheme`, `BrandProfile`, `BuilderRender`, `BuilderAIEmail`, `TemplateBuilderCapabilities`, `BrandImport`, `DnsProvider`, `CloudflareSetup`, `Usage` and their option types.
 
 ## [0.1.0] - 2026-10-12
 

@@ -113,6 +113,26 @@ export interface paths {
         patch: operations["patch_audiences_id_contacts_key"];
         trace?: never;
     };
+    "/brand/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import brand from website (Pidgely extension)
+         * @description Scale plan (403 `plan_required` otherwise). Fetches the website (public addresses only, every redirect re-checked, bounded sizes and timeouts) and proposes a builder theme and brand profile: logo candidates (stored and served from `/files/brand/...` so e-mails get absolute URLs), a palette ranked into roles with WCAG-checked button and link colors, fonts mapped to e-mail-safe stacks with Google Fonts, the company name, social profiles and postal address. With AI assist configured and included in the plan, Claude picks among the extracted candidates (it never sees the page); the heuristic result stands on its own. Nothing is saved unless `apply` is true. At most 6 imports per minute per organization.
+         */
+        post: operations["post_brand_import"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/broadcasts": {
         parameters: {
             query?: never;
@@ -328,6 +348,48 @@ export interface paths {
         head?: never;
         /** Update a domain */
         patch: operations["patch_domains_id"];
+        trace?: never;
+    };
+    "/domains/{id}/dns-provider": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Detect the DNS provider and automatic setup options
+         * @description Finds the DNS zone that holds the domain (NS lookups from the domain up to its registrable domain) and the provider that hosts it.
+         *     `domain_connect` is set when the provider supports Pidgely's Domain Connect template: open `url` (signed by Pidgely; it applies only this domain's records) and the provider creates the records after the user confirms, then redirects to `/domains/connected/` on the dashboard. `cloudflare` is true when the zone is on Cloudflare, so the records can be written with an API token (`POST .../dns-provider/cloudflare`). Lookups are bounded (a few seconds at most). 30 requests per minute per organization.
+         */
+        get: operations["get_domains_id_dns_provider"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/domains/{id}/dns-provider/cloudflare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Configure the domain's DNS records through the Cloudflare API
+         * @description Creates or updates exactly Pidgely's records in the domain's Cloudflare zone with a Cloudflare API token (permission Zone → DNS → Edit, plus Zone → Zone → Read to find the zone). Idempotent: running it again changes nothing. Unrelated records are never touched; an existing SPF record at the return path gets Pidgely's `include:` merged in (never a second SPF record), and an existing DMARC policy is kept. A DNS check is scheduled right after. The token is used for this request only: it is never stored or logged.
+         *     Errors (422, field `api_token`): `cloudflare_invalid_token`, `cloudflare_missing_permission`, `cloudflare_zone_not_found`; 502 `cloudflare_unavailable`. 10 requests per minute per organization.
+         */
+        post: operations["post_domains_id_dns_provider_cloudflare"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/domains/{id}/verify": {
@@ -575,6 +637,170 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/template-builder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Builder capabilities (plan, AI quota, organization theme)
+         * @description Available on every plan, so a client can check `builder` and `ai_available` before calling the builder or AI routes. Full access API keys.
+         */
+        get: operations["get_template_builder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/ai/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate an e-mail from a prompt (AI)
+         * @description Writes a full builder document (plus subject and preview text) in the requested language with the organization theme, or `theme` when given. Scale plan; hidden (403 `ai_disabled`) when the server has no AI provider key. Counts against the monthly AI quota (429 `ai_quota_exceeded`) and the per-minute limit (429 `ai_rate_limited`).
+         */
+        post: operations["post_template_builder_ai_generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/ai/rewrite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Improve, shorten or change the tone of one block (AI)
+         * @description The block keeps its id, type, style and links; only words and emphasis change. Scale plan.
+         */
+        post: operations["post_template_builder_ai_rewrite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/ai/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest subject lines and preview texts (AI)
+         * @description Five suggestions with different angles. Scale plan.
+         */
+        post: operations["post_template_builder_ai_subjects"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/ai/translate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Translate a template (AI)
+         * @description Translates the subject, preview text and every text of the document; structure, styles and links stay. Scale plan.
+         */
+        post: operations["post_template_builder_ai_translate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/convert": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Convert template HTML to a builder document (only when lossless)
+         * @description `convertible` is true only when every text, link and image of the HTML survives and no styling the builder cannot express was found; `reasons` explains otherwise. Scale plan.
+         */
+        post: operations["post_template_builder_convert"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/render": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Render and lint a builder document
+         * @description Returns the exact HTML and text a send would use (variable tags kept) and the deliverability lint. Scale plan (403 `plan_required` otherwise).
+         */
+        post: operations["post_template_builder_render"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/template-builder/theme": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the organization's builder theme and brand profile
+         * @description The saved theme (or the default one when none is saved, `theme_saved` false) and the brand profile used by AI generation for the footer, social links and links. Every plan.
+         */
+        get: operations["get_template_builder_theme"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Save the organization's default builder theme and brand profile
+         * @description Scale plan (403 `plan_required` otherwise).
+         */
+        patch: operations["patch_template_builder_theme"];
+        trace?: never;
+    };
     "/templates": {
         parameters: {
             query?: never;
@@ -657,6 +883,23 @@ export interface paths {
         put?: never;
         /** Publish the draft */
         post: operations["post_templates_key_publish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Today's usage and quota */
+        get: operations["native_get_v1_usage"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1039,6 +1282,8 @@ export interface components {
                 type: "string" | "number";
                 fallback_value?: string | number;
             }[];
+            /** @description Pidgely extension (Scale plan, 403 `plan_required` otherwise): a visual builder document. The server renders `html` and `text` from it. `null` removes the document and keeps the last HTML; sending `html` without `builder` detaches a builder template into an HTML template. */
+            builder?: components["schemas"]["BuilderDocument"] | null;
         };
         Template: {
             object?: string;
@@ -1062,6 +1307,8 @@ export interface components {
             text?: string;
             variables?: components["schemas"]["TemplateVariable"][];
             has_unpublished_versions?: boolean;
+            /** @description Visual builder document the HTML was rendered from (Pidgely extension); null for HTML templates. */
+            builder?: components["schemas"]["BuilderDocument"] | null;
         };
         ContactBatchResult: {
             /** @enum {string} */
@@ -1084,6 +1331,305 @@ export interface components {
             html: string;
             text: string;
             missing_variables: string[];
+        };
+        /** @description Global look of a builder e-mail. Colors are hex (`#rrggbb`). */
+        BuilderTheme: {
+            brand_color?: string;
+            text_color?: string;
+            background_color?: string;
+            /** @description Background of the content card. */
+            content_color?: string;
+            link_color?: string;
+            /** @enum {string} */
+            font?: "system" | "inter" | "helvetica" | "georgia" | "verdana" | "trebuchet";
+            content_width?: number;
+            radius?: number;
+            logo_url?: string;
+            logo_width?: number;
+            logo_alt?: string;
+            /** @enum {string} */
+            logo_align?: "left" | "center" | "right";
+            /** @description Logo variant shown in dark mode by clients that support it (Apple Mail, iOS); others keep `logo_url`. */
+            logo_dark_url?: string;
+            /** @description Label color of buttons on the brand color; empty picks white or near-black automatically. */
+            button_text_color?: string;
+            /** @description Google Fonts family loaded where e-mail clients support web fonts; `font` is the fallback stack. */
+            web_font?: string;
+            /**
+             * @description Heading stack (empty = `font`).
+             * @enum {string}
+             */
+            heading_font?: "system" | "inter" | "helvetica" | "georgia" | "verdana" | "trebuchet";
+            /** @description Google Fonts family for headings (empty = `web_font`). */
+            heading_web_font?: string;
+        };
+        BuilderThemeView: {
+            /** @enum {string} */
+            object: "builder_theme";
+            theme: components["schemas"]["BuilderTheme"];
+            brand: components["schemas"]["BrandProfile"];
+            /** @description False when the organization has no saved theme (the default theme is returned). */
+            theme_saved: boolean;
+            /** @description False when no brand profile is saved. */
+            brand_saved: boolean;
+        };
+        Usage: {
+            accepted?: number;
+            delivered?: number;
+            bounced?: number;
+            complained?: number;
+        };
+        /** @description Visual builder document (Pidgely extension, Scale plan). The server renders it to table-based e-mail HTML with Outlook (VML) buttons, responsive and dark-mode rules, and a plain-text version. */
+        BuilderDocument: {
+            /** @enum {integer} */
+            version?: 1;
+            preview_text?: string;
+            theme?: components["schemas"]["BuilderTheme"];
+            blocks: components["schemas"]["BuilderBlock"][];
+        };
+        DnsProvider: {
+            /** @enum {string} */
+            object: "dns_provider";
+            /** @description DNS zone that holds the domain (e.g. `acme.com` for `send.acme.com`). */
+            zone: string;
+            /** @description Labels of the domain below the zone (`send`; empty at the apex). */
+            host: string;
+            nameservers: string[];
+            /** @description Recognised DNS provider, null when unknown. */
+            provider: {
+                /** @description cloudflare, godaddy, ionos, route53, namecheap, google, vercel, digitalocean, registrobr, ... */
+                id: string;
+                name: string;
+            } | null;
+            /** @description Set when the provider supports Pidgely's Domain Connect template; null otherwise. */
+            domain_connect: {
+                provider_id: string;
+                provider_name: string;
+                /** @description Signed synchronous apply URL; open it in a new window. */
+                url: string;
+                width?: number;
+                height?: number;
+            } | null;
+            /** @description The zone is on Cloudflare; the records can be written with an API token. */
+            cloudflare: boolean;
+        };
+        NativeError: {
+            error?: {
+                code: string;
+                message: string;
+                field?: string;
+                request_id?: string;
+            };
+        };
+        /** @description A brand proposal from a website. `theme` and `brand` are ready to save; the other fields let a user swap each choice. */
+        BrandImport: {
+            /** @enum {string} */
+            object: "brand_import";
+            /** @description Final URL after redirects. */
+            url: string;
+            name: string;
+            /** @description Stored logo candidates, best first. */
+            logos: {
+                /** @description Public, absolute URL of the stored file (use it in e-mails). */
+                url: string;
+                source_url?: string;
+                /** @enum {string} */
+                source: "header" | "img" | "inline_svg" | "json_ld" | "apple_touch_icon" | "icon" | "manifest" | "og_image";
+                content_type: string;
+                width: number;
+                height: number;
+                transparent: boolean;
+                /** @description Reads on a light background. */
+                on_light: boolean;
+                /** @description Reads on a dark background. */
+                on_dark: boolean;
+                /** @description Raster image every e-mail client shows (SVG is not shown by Gmail or Outlook). */
+                email_safe: boolean;
+                colors: string[];
+                score: number;
+            }[];
+            /** @description Candidate colors, merged and ranked. */
+            colors: {
+                hex: string;
+                /** @enum {string} */
+                role: "primary" | "accent" | "text" | "background" | "other";
+                score: number;
+                sources: string[];
+            }[];
+            palette: {
+                primary: string;
+                accent?: string;
+                text: string;
+                background: string;
+                /** @description Primary darkened when needed to reach 4.5:1 on white. */
+                link: string;
+                button_text: string;
+                /** @description WCAG contrast ratio of the button label on the primary color. */
+                button_contrast: number;
+            };
+            fonts: {
+                family: string;
+                /** @enum {string} */
+                role: "body" | "heading" | "other";
+                google: boolean;
+                fallback: string;
+                source: string;
+            }[];
+            socials: {
+                network: string;
+                url: string;
+            }[];
+            address: string;
+            theme: components["schemas"]["BuilderTheme"];
+            brand: components["schemas"]["BrandProfile"];
+            ai: {
+                used: boolean;
+                rationale?: string;
+                /** @description Why AI was not used (disabled, plan, quota, error, invalid). */
+                skipped?: string;
+            };
+            warnings: ("no_logo" | "svg_logo_only" | "logo_not_on_dark" | "no_brand_colors" | "font_not_on_google_fonts" | "page_truncated")[];
+            applied: boolean;
+        };
+        /** @description The organization's identity used by AI assist (sender name, links, footer) and the brand import. */
+        BrandProfile: {
+            name?: string;
+            website?: string;
+            /** @description Postal address shown in footers. */
+            address?: string;
+            socials?: {
+                /** @enum {string} */
+                network: "x" | "linkedin" | "instagram" | "facebook" | "youtube" | "github" | "tiktok" | "discord" | "website";
+                url: string;
+            }[];
+            /** @description Page the brand was imported from. */
+            imported_from?: string;
+        };
+        BuilderAIEmail: {
+            /** @enum {string} */
+            object: "template_ai_email";
+            subject: string;
+            preview_text: string;
+            document: components["schemas"]["BuilderDocument"];
+        };
+        CloudflareSetup: {
+            /** @enum {string} */
+            object: "cloudflare_setup";
+            zone: string;
+            records: {
+                /** @enum {string} */
+                purpose: "dkim" | "return_path" | "spf" | "dmarc";
+                type: string;
+                name: string;
+                content: string;
+                priority?: number;
+                /**
+                 * @description `kept`: the domain's own record was left as is (an existing DMARC policy).
+                 * @enum {string}
+                 */
+                action: "created" | "updated" | "unchanged" | "kept";
+                /** @description Content an update replaced (an SPF record before Pidgely's include was merged in). */
+                previous?: string;
+            }[];
+        };
+        TemplateBuilderCapabilities: {
+            /** @enum {string} */
+            object: "template_builder";
+            plan: string;
+            required_plan: string;
+            /** @description The organization's plan includes the visual builder. */
+            builder: boolean;
+            /** @description AI assist is configured on the server and included in the plan. */
+            ai_available: boolean;
+            ai: {
+                enabled: boolean;
+                model?: string;
+                monthly_quota: number;
+                used: number;
+                remaining: number;
+                per_minute: number;
+            };
+            theme: components["schemas"]["BuilderTheme"];
+            theme_saved: boolean;
+            brand: components["schemas"]["BrandProfile"];
+            brand_saved: boolean;
+            /** @description Brand import is available (builder plan). */
+            brand_import: boolean;
+            /** @description Root site of the first verified sending domain ("" when none). */
+            suggested_website: string;
+        };
+        /** @description One row of the e-mail. Fields per type: heading (level, text), text and quote (runs), button (label, href, full_width), image (src, alt, href, width), divider (thickness), spacer (height), columns (2-3 columns of blocks, not nested), list (ordered, items), code (text), social (links), footer (runs, unsubscribe, unsubscribe_label, unsubscribe_url). */
+        BuilderBlock: {
+            id?: string;
+            /** @enum {string} */
+            type: "heading" | "text" | "button" | "image" | "divider" | "spacer" | "columns" | "list" | "quote" | "code" | "social" | "footer";
+            style?: components["schemas"]["BuilderStyle"];
+            /** @enum {integer} */
+            level?: 1 | 2 | 3;
+            text?: string;
+            runs?: components["schemas"]["BuilderRun"][];
+            label?: string;
+            href?: string;
+            full_width?: boolean;
+            src?: string;
+            alt?: string;
+            width?: number;
+            height?: number;
+            thickness?: number;
+            columns?: {
+                blocks: components["schemas"]["BuilderBlock"][];
+            }[];
+            ordered?: boolean;
+            items?: components["schemas"]["BuilderRun"][][];
+            links?: {
+                /** @enum {string} */
+                network: "x" | "linkedin" | "instagram" | "facebook" | "youtube" | "github" | "tiktok" | "discord" | "website";
+                url: string;
+            }[];
+            unsubscribe?: boolean;
+            unsubscribe_label?: string;
+            /** @description Default `{{{PIDGELY_UNSUBSCRIBE_URL}}}` (filled per recipient by broadcasts; pass it as a variable on API sends). */
+            unsubscribe_url?: string;
+        };
+        BuilderRender: {
+            /** @enum {string} */
+            object: "template_render";
+            html: string;
+            text: string;
+            variables: string[];
+            issues: components["schemas"]["BuilderIssue"][];
+            document: components["schemas"]["BuilderDocument"];
+        };
+        BuilderStyle: {
+            /** @enum {string} */
+            align?: "left" | "center" | "right";
+            color?: string;
+            background?: string;
+            font_size?: number;
+            padding?: {
+                top: number;
+                right: number;
+                bottom: number;
+                left: number;
+            };
+        };
+        /** @description Inline text with optional bold, italic and link (http(s), mailto, tel or a variable tag). */
+        BuilderRun: {
+            text: string;
+            bold?: boolean;
+            italic?: boolean;
+            href?: string;
+        };
+        /** @description Deliverability or accessibility finding. */
+        BuilderIssue: {
+            /** @description all_caps, spam_words, excessive_punctuation, url_shortener, placeholder_link, insecure_link, empty_link, missing_image, missing_alt, missing_unsubscribe, image_only, link_ratio, missing_preview_text, missing_subject, subject_all_caps, subject_spam_words, subject_punctuation, subject_long, too_large, empty_document. */
+            code: string;
+            /** @enum {string} */
+            severity: "error" | "warning" | "info";
+            block_id?: string;
+            field?: string;
+            message: string;
+            detail?: string;
         };
     };
     responses: {
@@ -1125,6 +1671,15 @@ export interface components {
         };
         /** @description Rate limit or quota exceeded */
         TooMany: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ResendError"];
+            };
+        };
+        /** @description The AI service failed or returned an unusable answer (ai_unavailable, ai_busy, ai_timeout, ai_invalid_output) */
+        Upstream: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1571,6 +2126,60 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_brand_import: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Website address (`acme.com` or `https://acme.com`). Defaults to the root site of the first verified sending domain.
+                     * @example https://acme.com
+                     */
+                    url?: string;
+                    /**
+                     * @description Save the proposed theme and brand profile as the organization's builder defaults.
+                     * @default false
+                     */
+                    apply?: boolean;
+                    /**
+                     * @description Let AI assist choose among the candidates when available (counts against the monthly AI quota).
+                     * @default true
+                     */
+                    ai?: boolean;
+                    /** @description Language of the AI rationale (BCP 47, e.g. `en`, `pt-br`, `es`). Default English. */
+                    language?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandImport"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            /** @description Validation error: `brand_url_forbidden` (private or internal address, port other than 80/443) or `brand_fetch_failed` (unreachable, non-HTML, HTTP error, timeout) */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendError"];
+                };
+            };
             429: components["responses"]["TooMany"];
         };
     };
@@ -2286,6 +2895,78 @@ export interface operations {
             429: components["responses"]["TooMany"];
         };
     };
+    get_domains_id_dns_provider: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DnsProvider"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_domains_id_dns_provider_cloudflare: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Cloudflare API token. Used once, never stored. */
+                    api_token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloudflareSetup"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+            /** @description Cloudflare could not be reached (`cloudflare_unavailable`). */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResendError"];
+                };
+            };
+        };
+    };
     post_domains_id_verify: {
         parameters: {
             query?: never;
@@ -2965,6 +3646,314 @@ export interface operations {
             429: components["responses"]["TooMany"];
         };
     };
+    get_template_builder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateBuilderCapabilities"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_template_builder_ai_generate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    prompt: string;
+                    /** @description Language tag (en, pt-br, es, fr, ...). Default en. */
+                    language?: string;
+                    theme?: components["schemas"]["BuilderTheme"];
+                    /** @description Declared template variable keys the e-mail may use. */
+                    variables?: string[];
+                    /** Format: uuid */
+                    template_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderAIEmail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    post_template_builder_ai_rewrite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    block: components["schemas"]["BuilderBlock"];
+                    /** @enum {string} */
+                    action: "improve" | "shorten" | "lengthen" | "fix" | "tone";
+                    /** @enum {string} */
+                    tone?: "friendly" | "professional" | "playful" | "persuasive" | "formal" | "casual" | "empathetic" | "urgent";
+                    language?: string;
+                    variables?: string[];
+                    /** Format: uuid */
+                    template_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "template_ai_block";
+                        block: components["schemas"]["BuilderBlock"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    post_template_builder_ai_subjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document: components["schemas"]["BuilderDocument"];
+                    subject?: string;
+                    language?: string;
+                    variables?: string[];
+                    /** Format: uuid */
+                    template_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "list";
+                        data: {
+                            subject: string;
+                            preview_text: string;
+                            angle: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    post_template_builder_ai_translate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document: components["schemas"]["BuilderDocument"];
+                    subject?: string;
+                    language: string;
+                    variables?: string[];
+                    /** Format: uuid */
+                    template_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderAIEmail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+            502: components["responses"]["Upstream"];
+        };
+    };
+    post_template_builder_convert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    html: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "template_conversion";
+                        convertible: boolean;
+                        reasons: string[];
+                        document: components["schemas"]["BuilderDocument"] | null;
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_template_builder_render: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    document: components["schemas"]["BuilderDocument"];
+                    subject?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderRender"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    get_template_builder_theme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderThemeView"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    patch_template_builder_theme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    theme: components["schemas"]["BuilderTheme"];
+                    brand?: components["schemas"]["BrandProfile"];
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        object: "builder_theme";
+                        theme: components["schemas"]["BuilderTheme"];
+                        brand: components["schemas"]["BrandProfile"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
     get_templates: {
         parameters: {
             query?: {
@@ -3209,6 +4198,39 @@ export interface operations {
             404: components["responses"]["NotFound"];
             422: components["responses"]["Invalid"];
             429: components["responses"]["TooMany"];
+        };
+    };
+    native_get_v1_usage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        today?: components["schemas"]["Usage"];
+                        daily_quota?: number;
+                        status?: string;
+                    };
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeError"];
+                };
+            };
         };
     };
     get_webhooks: {

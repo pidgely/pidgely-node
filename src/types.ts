@@ -390,6 +390,11 @@ export interface CreateTemplateOptions {
   text?: string;
   react?: ReactNodeLike;
   variables?: TemplateVariableOptions[];
+  /**
+   * Pidgely extension (Scale plan): a visual builder document. The API renders `html` and `text` from it;
+   * `null` removes the document and keeps the last HTML. Passed to the API as is (snake_case).
+   */
+  builder?: BuilderDocument | null;
 }
 export type UpdateTemplateOptions = Partial<CreateTemplateOptions>;
 export interface PreviewTemplateOptions {
@@ -466,4 +471,119 @@ export interface BatchAddSuppressionsOptions {
 export interface BatchRemoveSuppressionsOptions {
   emails?: string[];
   ids?: string[];
+}
+
+// ---------------------------------------------------------------------------
+// Template builder, AI assist and brand (Pidgely extensions, Scale plan)
+// ---------------------------------------------------------------------------
+
+/** Visual builder document: typed blocks plus a theme. Builder JSON is sent and returned as is (snake_case). */
+export type BuilderDocument = Schemas['BuilderDocument'];
+export type BuilderBlock = Schemas['BuilderBlock'];
+export type BuilderTheme = Schemas['BuilderTheme'];
+/** The organization's identity used by AI generation (footer, social links, links). */
+export type BrandProfile = Schemas['BrandProfile'];
+export type BuilderIssue = Schemas['BuilderIssue'];
+/** What the organization can use: builder, AI quota, saved theme and brand. */
+export type TemplateBuilderCapabilities = Schemas['TemplateBuilderCapabilities'];
+export type BuilderThemeView = Schemas['BuilderThemeView'];
+/** A rendered document: send-ready HTML (variable tags kept), plain text and deliverability issues. */
+export type BuilderRender = Schemas['BuilderRender'];
+/** A document written or translated by AI, with its subject and preview text. */
+export type BuilderAIEmail = Schemas['BuilderAIEmail'];
+export interface BuilderConversion {
+  object: 'template_conversion';
+  /** True only when every text, link and image of the HTML survives. */
+  convertible: boolean;
+  reasons: string[];
+  document: BuilderDocument | null;
+}
+export interface BuilderAIBlock {
+  object: 'template_ai_block';
+  block: BuilderBlock;
+}
+export interface SubjectSuggestion {
+  subject: string;
+  preview_text: string;
+  angle: string;
+}
+export type BrandImport = Schemas['BrandImport'];
+
+export interface UpdateThemeOptions {
+  theme: BuilderTheme;
+  /** Saved too when given. */
+  brand?: BrandProfile;
+}
+export interface RenderDocumentOptions {
+  document: BuilderDocument;
+  /** Linted with the document (all caps, spam words, length). */
+  subject?: string;
+}
+export interface ConvertHtmlOptions {
+  html: string;
+}
+interface AIContextOptions {
+  /** Language tag (`en`, `pt-br`, `es`, …). */
+  language?: string;
+  /** Declared template variable keys the text may use. */
+  variables?: string[];
+  /** Template being edited (recorded with the AI request). */
+  templateId?: string;
+}
+export interface GenerateTemplateOptions extends AIContextOptions {
+  /** What the e-mail is about (up to 2,000 characters). */
+  prompt: string;
+  /** Defaults to the organization theme. */
+  theme?: BuilderTheme;
+}
+export type RewriteAction = 'improve' | 'shorten' | 'lengthen' | 'fix' | 'tone';
+export type RewriteTone = 'friendly' | 'professional' | 'playful' | 'persuasive' | 'formal' | 'casual' | 'empathetic' | 'urgent';
+export interface RewriteBlockOptions extends AIContextOptions {
+  block: BuilderBlock;
+  action: RewriteAction;
+  /** Required with `action: 'tone'`. */
+  tone?: RewriteTone;
+}
+export interface TranslateTemplateOptions extends AIContextOptions {
+  document: BuilderDocument;
+  subject?: string;
+  language: string;
+}
+export interface SuggestSubjectsOptions extends AIContextOptions {
+  document: BuilderDocument;
+  /** Current subject, if any. */
+  subject?: string;
+}
+export interface ImportBrandOptions {
+  /** Website (`acme.com` or `https://acme.com`). Defaults to the root site of the first verified sending domain. */
+  url?: string;
+  /** Save the proposed theme and brand profile as the organization defaults. */
+  apply?: boolean;
+  /** Let AI assist pick among the candidates when available (default true; uses the AI quota). */
+  ai?: boolean;
+  /** Language of the AI rationale. */
+  language?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Automatic DNS setup
+// ---------------------------------------------------------------------------
+
+export type DnsProvider = Schemas['DnsProvider'];
+export type CloudflareSetup = Schemas['CloudflareSetup'];
+export interface SetupCloudflareOptions {
+  /** Cloudflare API token (Zone → DNS → Edit, Zone → Zone → Read). Used for this request only; never stored. */
+  apiToken: string;
+}
+
+// ---------------------------------------------------------------------------
+// Usage
+// ---------------------------------------------------------------------------
+
+export interface Usage {
+  /** Today's counters (UTC). */
+  today: Schemas['Usage'];
+  daily_quota: number;
+  /** Account status (`active`, `sandbox`, `paused`, …). */
+  status: string;
 }

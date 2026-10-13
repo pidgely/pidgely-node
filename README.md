@@ -196,6 +196,18 @@ await pidgely.domains.update({ id: domain!.id, tls: 'enforced' });
 await pidgely.domains.remove(domain!.id);
 ```
 
+Automatic DNS setup: detect the provider, then let Pidgely create the records on Cloudflare (the token is used for that request only and never stored), or open the signed Domain Connect link:
+
+```ts
+const { data: dns } = await pidgely.domains.dnsProvider(domain!.id);
+if (dns?.cloudflare) {
+  const { data: setup } = await pidgely.domains.setupCloudflare(domain!.id, { apiToken: process.env.CLOUDFLARE_TOKEN! });
+  console.table(setup?.records); // created | updated | unchanged | kept, per record
+} else if (dns?.domain_connect) {
+  console.log('Approve the records at your provider:', dns.domain_connect.url);
+}
+```
+
 ### API keys
 
 ```ts
@@ -298,6 +310,38 @@ const { data: preview } = await pidgely.templates.preview('welcome', { variables
 await pidgely.templates.duplicate('welcome'); // also chainable with .publish()
 await pidgely.templates.list();
 await pidgely.templates.remove('welcome');
+```
+
+### Template builder, AI assist and brand (Scale plan)
+
+Pidgely extensions. Builder documents (typed blocks plus a theme) are sent and returned as JSON, in the API's snake_case:
+
+```ts
+const { data: caps } = await pidgely.templateBuilder.capabilities(); // builder, ai_available, AI quota, theme, brand
+
+// Read your website once: logo, colors, fonts, social links and address become the organization theme
+await pidgely.brand.import({ url: 'https://acme.com', apply: true });
+
+// Write an e-mail with AI (uses your theme and brand), check it, save it as a template
+const { data: email } = await pidgely.templateBuilder.ai.generate({ prompt: 'Welcome e-mail for new users of our invoicing app', language: 'en' });
+const { data: rendered } = await pidgely.templateBuilder.render({ document: email!.document, subject: email!.subject });
+console.log(rendered?.issues); // deliverability lint: spam words, missing unsubscribe, placeholder links…
+await pidgely.templates.create({ name: 'Welcome', alias: 'welcome', subject: email!.subject, builder: email!.document }).publish();
+
+await pidgely.templateBuilder.ai.rewrite({ block: email!.document.blocks[1]!, action: 'tone', tone: 'friendly' });
+await pidgely.templateBuilder.ai.translate({ document: email!.document, subject: email!.subject, language: 'pt-br' });
+await pidgely.templateBuilder.ai.subjects({ document: email!.document }); // five subject + preview text ideas
+await pidgely.templateBuilder.convert({ html: '<h1>Hello</h1><p>Welcome!</p>' }); // HTML to a document, when lossless
+await pidgely.templateBuilder.getTheme();
+await pidgely.templateBuilder.updateTheme({ theme: { brand_color: '#2563eb', font: 'inter' } });
+```
+
+Below Scale these return `403 plan_required`; AI calls count against the monthly AI quota (`429 ai_quota_exceeded`).
+
+### Usage
+
+```ts
+const { data: usage } = await pidgely.usage.get(); // { today: { accepted, delivered, bounced, complained }, daily_quota, status }
 ```
 
 ### Webhooks

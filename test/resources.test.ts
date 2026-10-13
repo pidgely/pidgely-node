@@ -472,6 +472,94 @@ const cases: Case[] = [
     path: '/suppressions/batch/remove',
     body: { ids: ['sup_1'] },
   },
+  // Template builder documents through /templates (passed as is, snake_case kept)
+  {
+    name: 'templates.create with a builder document',
+    call: (p) =>
+      p.templates.create({
+        name: 'Welcome (builder)',
+        subject: 'Welcome',
+        builder: { preview_text: 'Hi', theme: { brand_color: '#2563eb' }, blocks: [{ type: 'button', label: 'Go', href: 'https://acme.com', full_width: true }] },
+      }),
+    method: 'POST',
+    path: '/templates',
+    body: {
+      name: 'Welcome (builder)',
+      subject: 'Welcome',
+      builder: { preview_text: 'Hi', theme: { brand_color: '#2563eb' }, blocks: [{ type: 'button', label: 'Go', href: 'https://acme.com', full_width: true }] },
+    },
+  },
+  { name: 'templates.update detaches the builder document', call: (p) => p.templates.update('welcome', { builder: null }), method: 'PATCH', path: '/templates/welcome', body: { builder: null } },
+  // Template builder and AI assist
+  { name: 'templateBuilder.capabilities', call: (p) => p.templateBuilder.capabilities(), method: 'GET', path: '/template-builder' },
+  { name: 'templateBuilder.getTheme', call: (p) => p.templateBuilder.getTheme(), method: 'GET', path: '/template-builder/theme' },
+  {
+    name: 'templateBuilder.updateTheme',
+    call: (p) => p.templateBuilder.updateTheme({ theme: { brand_color: '#2563eb', logo_url: 'https://acme.com/l.png' }, brand: { name: 'Acme', website: 'https://acme.com/' } }),
+    method: 'PATCH',
+    path: '/template-builder/theme',
+    body: { theme: { brand_color: '#2563eb', logo_url: 'https://acme.com/l.png' }, brand: { name: 'Acme', website: 'https://acme.com/' } },
+  },
+  {
+    name: 'templateBuilder.render',
+    call: (p) => p.templateBuilder.render({ document: { blocks: [{ type: 'heading', text: 'Hi' }] }, subject: 'Hello' }),
+    method: 'POST',
+    path: '/template-builder/render',
+    body: { document: { blocks: [{ type: 'heading', text: 'Hi' }] }, subject: 'Hello' },
+  },
+  {
+    name: 'templateBuilder.convert',
+    call: (p) => p.templateBuilder.convert({ html: '<h1>Hi</h1>' }),
+    method: 'POST',
+    path: '/template-builder/convert',
+    body: { html: '<h1>Hi</h1>' },
+  },
+  {
+    name: 'templateBuilder.ai.generate',
+    call: (p) => p.templateBuilder.ai.generate({ prompt: 'Welcome e-mail', language: 'pt-br', variables: ['PLAN'], templateId: 'tpl_1', theme: { font: 'inter' } }),
+    method: 'POST',
+    path: '/template-builder/ai/generate',
+    body: { prompt: 'Welcome e-mail', language: 'pt-br', variables: ['PLAN'], template_id: 'tpl_1', theme: { font: 'inter' } },
+  },
+  {
+    name: 'templateBuilder.ai.rewrite',
+    call: (p) => p.templateBuilder.ai.rewrite({ block: { type: 'text', runs: [{ text: 'Hi' }] }, action: 'tone', tone: 'friendly' }),
+    method: 'POST',
+    path: '/template-builder/ai/rewrite',
+    body: { block: { type: 'text', runs: [{ text: 'Hi' }] }, action: 'tone', tone: 'friendly' },
+  },
+  {
+    name: 'templateBuilder.ai.translate',
+    call: (p) => p.templateBuilder.ai.translate({ document: { blocks: [] }, subject: 'Hello', language: 'es' }),
+    method: 'POST',
+    path: '/template-builder/ai/translate',
+    body: { document: { blocks: [] }, subject: 'Hello', language: 'es' },
+  },
+  {
+    name: 'templateBuilder.ai.subjects',
+    call: (p) => p.templateBuilder.ai.subjects({ document: { blocks: [] } }),
+    method: 'POST',
+    path: '/template-builder/ai/subjects',
+    body: { document: { blocks: [] } },
+  },
+  // Brand, DNS setup, usage
+  {
+    name: 'brand.import',
+    call: (p) => p.brand.import({ url: 'acme.com', apply: true, ai: false, language: 'en' }),
+    method: 'POST',
+    path: '/brand/import',
+    body: { url: 'acme.com', apply: true, ai: false, language: 'en' },
+  },
+  { name: 'brand.import without a url', call: (p) => p.brand.import(), method: 'POST', path: '/brand/import', body: {} },
+  { name: 'domains.dnsProvider', call: (p) => p.domains.dnsProvider('dom_1'), method: 'GET', path: '/domains/dom_1/dns-provider' },
+  {
+    name: 'domains.setupCloudflare',
+    call: (p) => p.domains.setupCloudflare('dom_1', { apiToken: 'cf-token' }),
+    method: 'POST',
+    path: '/domains/dom_1/dns-provider/cloudflare',
+    body: { api_token: 'cf-token' },
+  },
+  { name: 'usage.get', call: (p) => p.usage.get(), method: 'GET', path: '/v1/usage' },
 ];
 
 describe('resource methods', () => {
@@ -564,5 +652,26 @@ describe('templates chaining', () => {
     const { pidgely } = client([{ body: { object: 'template', id: 't' } }]);
     const value = await pidgely.templates.create({ name: 'x' }).then((r) => r.data?.id);
     expect(value).toBe('t');
+  });
+});
+
+describe('pidgely extensions', () => {
+  it('templateBuilder.ai.subjects returns suggestions', async () => {
+    const body = { object: 'list', data: [{ subject: 'Welcome', preview_text: 'Hi', angle: 'direct' }] };
+    const { pidgely } = client([{ body }]);
+    const res = await pidgely.templateBuilder.ai.subjects({ document: { blocks: [] } });
+    expect(res.data?.data[0]?.angle).toBe('direct');
+  });
+
+  it('surfaces plan_required from the builder routes', async () => {
+    const { pidgely } = client([{ status: 403, body: { statusCode: 403, name: 'plan_required', message: 'The Scale plan is required.' } }]);
+    const res = await pidgely.templateBuilder.render({ document: { blocks: [] } });
+    expect(res.error).toEqual({ statusCode: 403, name: 'plan_required', message: 'The Scale plan is required.' });
+  });
+
+  it('reads native /v1 errors from usage.get', async () => {
+    const { pidgely } = client([{ status: 403, body: { error: { code: 'insufficient_scope', message: 'this API key can only send emails' } } }]);
+    const res = await pidgely.usage.get();
+    expect(res.error?.name).toBe('insufficient_scope');
   });
 });

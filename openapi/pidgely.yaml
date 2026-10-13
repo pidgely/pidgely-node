@@ -18,8 +18,10 @@ tags:
 - name: Contacts
 - name: Domains
 - name: Emails
+- name: Native API (v1)
 - name: Segments
 - name: Suppressions
+- name: Template builder
 - name: Templates
 - name: Webhooks
 paths:
@@ -600,6 +602,65 @@ paths:
           $ref: '#/components/responses/NotFound'
         '422':
           $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+  /brand/import:
+    post:
+      tags:
+      - Templates
+      summary: Import brand from website (Pidgely extension)
+      operationId: post_brand_import
+      description: 'Scale plan (403 `plan_required` otherwise). Fetches the website (public addresses only, every redirect
+        re-checked, bounded sizes and timeouts) and proposes a builder theme and brand profile: logo candidates (stored and
+        served from `/files/brand/...` so e-mails get absolute URLs), a palette ranked into roles with WCAG-checked button
+        and link colors, fonts mapped to e-mail-safe stacks with Google Fonts, the company name, social profiles and postal
+        address. With AI assist configured and included in the plan, Claude picks among the extracted candidates (it never
+        sees the page); the heuristic result stands on its own. Nothing is saved unless `apply` is true. At most 6 imports
+        per minute per organization.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                url:
+                  type: string
+                  description: Website address (`acme.com` or `https://acme.com`). Defaults to the root site of the first
+                    verified sending domain.
+                  examples:
+                  - https://acme.com
+                apply:
+                  type: boolean
+                  default: false
+                  description: Save the proposed theme and brand profile as the organization's builder defaults.
+                ai:
+                  type: boolean
+                  default: true
+                  description: Let AI assist choose among the candidates when available (counts against the monthly AI quota).
+                language:
+                  type: string
+                  description: Language of the AI rationale (BCP 47, e.g. `en`, `pt-br`, `es`). Default English.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BrandImport'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          description: 'Validation error: `brand_url_forbidden` (private or internal address, port other than 80/443) or `brand_fetch_failed`
+            (unreachable, non-HTML, HTTP error, timeout)'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResendError'
         '429':
           $ref: '#/components/responses/TooMany'
       security:
@@ -1521,6 +1582,106 @@ paths:
           $ref: '#/components/responses/TooMany'
       security:
       - apiKey: []
+  /domains/{id}/dns-provider:
+    get:
+      tags:
+      - Domains
+      summary: Detect the DNS provider and automatic setup options
+      operationId: get_domains_id_dns_provider
+      description: 'Finds the DNS zone that holds the domain (NS lookups from the domain up to its registrable domain) and
+        the provider that hosts it.
+
+        `domain_connect` is set when the provider supports Pidgely''s Domain Connect template: open `url` (signed by Pidgely;
+        it applies only this domain''s records) and the provider creates the records after the user confirms, then redirects
+        to `/domains/connected/` on the dashboard. `cloudflare` is true when the zone is on Cloudflare, so the records can
+        be written with an API token (`POST .../dns-provider/cloudflare`). Lookups are bounded (a few seconds at most). 30
+        requests per minute per organization.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Resource id
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DnsProvider'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+  /domains/{id}/dns-provider/cloudflare:
+    post:
+      tags:
+      - Domains
+      summary: Configure the domain's DNS records through the Cloudflare API
+      operationId: post_domains_id_dns_provider_cloudflare
+      description: 'Creates or updates exactly Pidgely''s records in the domain''s Cloudflare zone with a Cloudflare API token
+        (permission Zone → DNS → Edit, plus Zone → Zone → Read to find the zone). Idempotent: running it again changes nothing.
+        Unrelated records are never touched; an existing SPF record at the return path gets Pidgely''s `include:` merged in
+        (never a second SPF record), and an existing DMARC policy is kept. A DNS check is scheduled right after. The token
+        is used for this request only: it is never stored or logged.
+
+        Errors (422, field `api_token`): `cloudflare_invalid_token`, `cloudflare_missing_permission`, `cloudflare_zone_not_found`;
+        502 `cloudflare_unavailable`. 10 requests per minute per organization.'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Resource id
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                api_token:
+                  type: string
+                  description: Cloudflare API token. Used once, never stored.
+              required:
+              - api_token
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CloudflareSetup'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+        '502':
+          description: Cloudflare could not be reached (`cloudflare_unavailable`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResendError'
+      security:
+      - apiKey: []
   /domains/{id}/verify:
     post:
       tags:
@@ -2430,6 +2591,441 @@ paths:
           $ref: '#/components/responses/TooMany'
       security:
       - apiKey: []
+  /template-builder:
+    get:
+      tags:
+      - Template builder
+      summary: Builder capabilities (plan, AI quota, organization theme)
+      operationId: get_template_builder
+      description: Available on every plan, so a client can check `builder` and `ai_available` before calling the builder
+        or AI routes. Full access API keys.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateBuilderCapabilities'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+  /template-builder/ai/generate:
+    post:
+      tags:
+      - Template builder
+      summary: Generate an e-mail from a prompt (AI)
+      operationId: post_template_builder_ai_generate
+      description: Writes a full builder document (plus subject and preview text) in the requested language with the organization
+        theme, or `theme` when given. Scale plan; hidden (403 `ai_disabled`) when the server has no AI provider key. Counts
+        against the monthly AI quota (429 `ai_quota_exceeded`) and the per-minute limit (429 `ai_rate_limited`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                prompt:
+                  type: string
+                  maxLength: 2000
+                language:
+                  type: string
+                  description: Language tag (en, pt-br, es, fr, ...). Default en.
+                theme:
+                  $ref: '#/components/schemas/BuilderTheme'
+                variables:
+                  type: array
+                  items:
+                    type: string
+                  description: Declared template variable keys the e-mail may use.
+                template_id:
+                  type: string
+                  format: uuid
+              required:
+              - prompt
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuilderAIEmail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+        '502':
+          $ref: '#/components/responses/Upstream'
+      security:
+      - apiKey: []
+  /template-builder/ai/rewrite:
+    post:
+      tags:
+      - Template builder
+      summary: Improve, shorten or change the tone of one block (AI)
+      operationId: post_template_builder_ai_rewrite
+      description: The block keeps its id, type, style and links; only words and emphasis change. Scale plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                block:
+                  $ref: '#/components/schemas/BuilderBlock'
+                action:
+                  type: string
+                  enum:
+                  - improve
+                  - shorten
+                  - lengthen
+                  - fix
+                  - tone
+                tone:
+                  type: string
+                  enum:
+                  - friendly
+                  - professional
+                  - playful
+                  - persuasive
+                  - formal
+                  - casual
+                  - empathetic
+                  - urgent
+                language:
+                  type: string
+                variables:
+                  type: array
+                  items:
+                    type: string
+                template_id:
+                  type: string
+                  format: uuid
+              required:
+              - block
+              - action
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum:
+                    - template_ai_block
+                  block:
+                    $ref: '#/components/schemas/BuilderBlock'
+                required:
+                - object
+                - block
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+        '502':
+          $ref: '#/components/responses/Upstream'
+      security:
+      - apiKey: []
+  /template-builder/ai/subjects:
+    post:
+      tags:
+      - Template builder
+      summary: Suggest subject lines and preview texts (AI)
+      operationId: post_template_builder_ai_subjects
+      description: Five suggestions with different angles. Scale plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document:
+                  $ref: '#/components/schemas/BuilderDocument'
+                subject:
+                  type: string
+                language:
+                  type: string
+                variables:
+                  type: array
+                  items:
+                    type: string
+                template_id:
+                  type: string
+                  format: uuid
+              required:
+              - document
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum:
+                    - list
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        subject:
+                          type: string
+                        preview_text:
+                          type: string
+                        angle:
+                          type: string
+                      required:
+                      - subject
+                      - preview_text
+                      - angle
+                required:
+                - object
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+        '502':
+          $ref: '#/components/responses/Upstream'
+      security:
+      - apiKey: []
+  /template-builder/ai/translate:
+    post:
+      tags:
+      - Template builder
+      summary: Translate a template (AI)
+      operationId: post_template_builder_ai_translate
+      description: Translates the subject, preview text and every text of the document; structure, styles and links stay.
+        Scale plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document:
+                  $ref: '#/components/schemas/BuilderDocument'
+                subject:
+                  type: string
+                language:
+                  type: string
+                variables:
+                  type: array
+                  items:
+                    type: string
+                template_id:
+                  type: string
+                  format: uuid
+              required:
+              - document
+              - language
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuilderAIEmail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+        '502':
+          $ref: '#/components/responses/Upstream'
+      security:
+      - apiKey: []
+  /template-builder/convert:
+    post:
+      tags:
+      - Template builder
+      summary: Convert template HTML to a builder document (only when lossless)
+      operationId: post_template_builder_convert
+      description: '`convertible` is true only when every text, link and image of the HTML survives and no styling the builder
+        cannot express was found; `reasons` explains otherwise. Scale plan.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                html:
+                  type: string
+              required:
+              - html
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum:
+                    - template_conversion
+                  convertible:
+                    type: boolean
+                  reasons:
+                    type: array
+                    items:
+                      type: string
+                  document:
+                    oneOf:
+                    - $ref: '#/components/schemas/BuilderDocument'
+                    - type: 'null'
+                required:
+                - object
+                - convertible
+                - reasons
+                - document
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+  /template-builder/render:
+    post:
+      tags:
+      - Template builder
+      summary: Render and lint a builder document
+      operationId: post_template_builder_render
+      description: Returns the exact HTML and text a send would use (variable tags kept) and the deliverability lint. Scale
+        plan (403 `plan_required` otherwise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                document:
+                  $ref: '#/components/schemas/BuilderDocument'
+                subject:
+                  type: string
+              required:
+              - document
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuilderRender'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+  /template-builder/theme:
+    get:
+      tags:
+      - Template builder
+      summary: Get the organization's builder theme and brand profile
+      operationId: get_template_builder_theme
+      description: The saved theme (or the default one when none is saved, `theme_saved` false) and the brand profile used
+        by AI generation for the footer, social links and links. Every plan.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuilderThemeView'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
+    patch:
+      tags:
+      - Template builder
+      summary: Save the organization's default builder theme and brand profile
+      operationId: patch_template_builder_theme
+      description: Scale plan (403 `plan_required` otherwise).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                theme:
+                  $ref: '#/components/schemas/BuilderTheme'
+                brand:
+                  $ref: '#/components/schemas/BrandProfile'
+              required:
+              - theme
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    enum:
+                    - builder_theme
+                  theme:
+                    $ref: '#/components/schemas/BuilderTheme'
+                  brand:
+                    $ref: '#/components/schemas/BrandProfile'
+                required:
+                - object
+                - theme
+                - brand
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+        '429':
+          $ref: '#/components/responses/TooMany'
+      security:
+      - apiKey: []
   /templates:
     post:
       tags:
@@ -2729,6 +3325,34 @@ paths:
           $ref: '#/components/responses/TooMany'
       security:
       - apiKey: []
+  /v1/usage:
+    get:
+      tags:
+      - Native API (v1)
+      summary: Today's usage and quota
+      operationId: native_get_v1_usage
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  today:
+                    $ref: '#/components/schemas/Usage'
+                  daily_quota:
+                    type: integer
+                  status:
+                    type: string
+        default:
+          description: Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NativeError'
+      security:
+      - apiKey: []
   /webhooks:
     post:
       tags:
@@ -3026,6 +3650,12 @@ components:
             $ref: '#/components/schemas/ResendError'
     TooMany:
       description: Rate limit or quota exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ResendError'
+    Upstream:
+      description: The AI service failed or returned an unusable answer (ai_unavailable, ai_busy, ai_timeout, ai_invalid_output)
       content:
         application/json:
           schema:
@@ -3716,6 +4346,13 @@ components:
             required:
             - key
             - type
+        builder:
+          description: 'Pidgely extension (Scale plan, 403 `plan_required` otherwise): a visual builder document. The server
+            renders `html` and `text` from it. `null` removes the document and keeps the last HTML; sending `html` without
+            `builder` detaches a builder template into an HTML template.'
+          oneOf:
+          - $ref: '#/components/schemas/BuilderDocument'
+          - type: 'null'
     Template:
       type: object
       properties:
@@ -3768,6 +4405,11 @@ components:
             $ref: '#/components/schemas/TemplateVariable'
         has_unpublished_versions:
           type: boolean
+        builder:
+          description: Visual builder document the HTML was rendered from (Pidgely extension); null for HTML templates.
+          oneOf:
+          - $ref: '#/components/schemas/BuilderDocument'
+          - type: 'null'
     ContactBatchResult:
       type: object
       properties:
@@ -3830,3 +4472,785 @@ components:
       - html
       - text
       - missing_variables
+    BuilderTheme:
+      type: object
+      description: Global look of a builder e-mail. Colors are hex (`#rrggbb`).
+      properties:
+        brand_color:
+          type: string
+        text_color:
+          type: string
+        background_color:
+          type: string
+        content_color:
+          type: string
+          description: Background of the content card.
+        link_color:
+          type: string
+        font:
+          type: string
+          enum:
+          - system
+          - inter
+          - helvetica
+          - georgia
+          - verdana
+          - trebuchet
+        content_width:
+          type: integer
+          minimum: 480
+          maximum: 800
+        radius:
+          type: integer
+          minimum: 0
+          maximum: 32
+        logo_url:
+          type: string
+        logo_width:
+          type: integer
+        logo_alt:
+          type: string
+        logo_align:
+          type: string
+          enum:
+          - left
+          - center
+          - right
+        logo_dark_url:
+          type: string
+          description: Logo variant shown in dark mode by clients that support it (Apple Mail, iOS); others keep `logo_url`.
+        button_text_color:
+          type: string
+          description: Label color of buttons on the brand color; empty picks white or near-black automatically.
+        web_font:
+          type: string
+          description: Google Fonts family loaded where e-mail clients support web fonts; `font` is the fallback stack.
+        heading_font:
+          type: string
+          enum:
+          - system
+          - inter
+          - helvetica
+          - georgia
+          - verdana
+          - trebuchet
+          description: Heading stack (empty = `font`).
+        heading_web_font:
+          type: string
+          description: Google Fonts family for headings (empty = `web_font`).
+    BuilderThemeView:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - builder_theme
+        theme:
+          $ref: '#/components/schemas/BuilderTheme'
+        brand:
+          $ref: '#/components/schemas/BrandProfile'
+        theme_saved:
+          type: boolean
+          description: False when the organization has no saved theme (the default theme is returned).
+        brand_saved:
+          type: boolean
+          description: False when no brand profile is saved.
+      required:
+      - object
+      - theme
+      - brand
+      - theme_saved
+      - brand_saved
+    Usage:
+      type: object
+      properties:
+        accepted:
+          type: integer
+        delivered:
+          type: integer
+        bounced:
+          type: integer
+        complained:
+          type: integer
+    BuilderDocument:
+      type: object
+      description: Visual builder document (Pidgely extension, Scale plan). The server renders it to table-based e-mail HTML
+        with Outlook (VML) buttons, responsive and dark-mode rules, and a plain-text version.
+      properties:
+        version:
+          type: integer
+          enum:
+          - 1
+        preview_text:
+          type: string
+        theme:
+          $ref: '#/components/schemas/BuilderTheme'
+        blocks:
+          type: array
+          maxItems: 200
+          items:
+            $ref: '#/components/schemas/BuilderBlock'
+      required:
+      - blocks
+    DnsProvider:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - dns_provider
+        zone:
+          type: string
+          description: DNS zone that holds the domain (e.g. `acme.com` for `send.acme.com`).
+        host:
+          type: string
+          description: Labels of the domain below the zone (`send`; empty at the apex).
+        nameservers:
+          type: array
+          items:
+            type: string
+        provider:
+          type:
+          - object
+          - 'null'
+          description: Recognised DNS provider, null when unknown.
+          properties:
+            id:
+              type: string
+              description: cloudflare, godaddy, ionos, route53, namecheap, google, vercel, digitalocean, registrobr, ...
+            name:
+              type: string
+          required:
+          - id
+          - name
+        domain_connect:
+          type:
+          - object
+          - 'null'
+          description: Set when the provider supports Pidgely's Domain Connect template; null otherwise.
+          properties:
+            provider_id:
+              type: string
+            provider_name:
+              type: string
+            url:
+              type: string
+              description: Signed synchronous apply URL; open it in a new window.
+            width:
+              type: integer
+            height:
+              type: integer
+          required:
+          - provider_id
+          - provider_name
+          - url
+        cloudflare:
+          type: boolean
+          description: The zone is on Cloudflare; the records can be written with an API token.
+      required:
+      - object
+      - zone
+      - host
+      - nameservers
+      - provider
+      - domain_connect
+      - cloudflare
+    NativeError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            field:
+              type: string
+            request_id:
+              type: string
+          required:
+          - code
+          - message
+    BrandImport:
+      type: object
+      description: A brand proposal from a website. `theme` and `brand` are ready to save; the other fields let a user swap
+        each choice.
+      properties:
+        object:
+          type: string
+          enum:
+          - brand_import
+        url:
+          type: string
+          description: Final URL after redirects.
+        name:
+          type: string
+        logos:
+          type: array
+          description: Stored logo candidates, best first.
+          items:
+            type: object
+            properties:
+              url:
+                type: string
+                description: Public, absolute URL of the stored file (use it in e-mails).
+              source_url:
+                type: string
+              source:
+                type: string
+                enum:
+                - header
+                - img
+                - inline_svg
+                - json_ld
+                - apple_touch_icon
+                - icon
+                - manifest
+                - og_image
+              content_type:
+                type: string
+              width:
+                type: integer
+              height:
+                type: integer
+              transparent:
+                type: boolean
+              on_light:
+                type: boolean
+                description: Reads on a light background.
+              on_dark:
+                type: boolean
+                description: Reads on a dark background.
+              email_safe:
+                type: boolean
+                description: Raster image every e-mail client shows (SVG is not shown by Gmail or Outlook).
+              colors:
+                type: array
+                items:
+                  type: string
+              score:
+                type: number
+            required:
+            - url
+            - source
+            - content_type
+            - width
+            - height
+            - transparent
+            - on_light
+            - on_dark
+            - email_safe
+            - colors
+            - score
+        colors:
+          type: array
+          description: Candidate colors, merged and ranked.
+          items:
+            type: object
+            properties:
+              hex:
+                type: string
+              role:
+                type: string
+                enum:
+                - primary
+                - accent
+                - text
+                - background
+                - other
+              score:
+                type: number
+              sources:
+                type: array
+                items:
+                  type: string
+            required:
+            - hex
+            - role
+            - score
+            - sources
+        palette:
+          type: object
+          properties:
+            primary:
+              type: string
+            accent:
+              type: string
+            text:
+              type: string
+            background:
+              type: string
+            link:
+              type: string
+              description: Primary darkened when needed to reach 4.5:1 on white.
+            button_text:
+              type: string
+            button_contrast:
+              type: number
+              description: WCAG contrast ratio of the button label on the primary color.
+          required:
+          - primary
+          - text
+          - background
+          - link
+          - button_text
+          - button_contrast
+        fonts:
+          type: array
+          items:
+            type: object
+            properties:
+              family:
+                type: string
+              role:
+                type: string
+                enum:
+                - body
+                - heading
+                - other
+              google:
+                type: boolean
+              fallback:
+                type: string
+              source:
+                type: string
+            required:
+            - family
+            - role
+            - google
+            - fallback
+            - source
+        socials:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                type: string
+              url:
+                type: string
+            required:
+            - network
+            - url
+        address:
+          type: string
+        theme:
+          $ref: '#/components/schemas/BuilderTheme'
+        brand:
+          $ref: '#/components/schemas/BrandProfile'
+        ai:
+          type: object
+          properties:
+            used:
+              type: boolean
+            rationale:
+              type: string
+            skipped:
+              type: string
+              description: Why AI was not used (disabled, plan, quota, error, invalid).
+          required:
+          - used
+        warnings:
+          type: array
+          items:
+            type: string
+            enum:
+            - no_logo
+            - svg_logo_only
+            - logo_not_on_dark
+            - no_brand_colors
+            - font_not_on_google_fonts
+            - page_truncated
+        applied:
+          type: boolean
+      required:
+      - object
+      - url
+      - name
+      - logos
+      - colors
+      - palette
+      - fonts
+      - socials
+      - address
+      - theme
+      - brand
+      - ai
+      - warnings
+      - applied
+    BrandProfile:
+      type: object
+      description: The organization's identity used by AI assist (sender name, links, footer) and the brand import.
+      properties:
+        name:
+          type: string
+        website:
+          type: string
+        address:
+          type: string
+          description: Postal address shown in footers.
+        socials:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                type: string
+                enum:
+                - x
+                - linkedin
+                - instagram
+                - facebook
+                - youtube
+                - github
+                - tiktok
+                - discord
+                - website
+              url:
+                type: string
+            required:
+            - network
+            - url
+        imported_from:
+          type: string
+          description: Page the brand was imported from.
+    BuilderAIEmail:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - template_ai_email
+        subject:
+          type: string
+        preview_text:
+          type: string
+        document:
+          $ref: '#/components/schemas/BuilderDocument'
+      required:
+      - object
+      - subject
+      - preview_text
+      - document
+    CloudflareSetup:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - cloudflare_setup
+        zone:
+          type: string
+        records:
+          type: array
+          items:
+            type: object
+            properties:
+              purpose:
+                type: string
+                enum:
+                - dkim
+                - return_path
+                - spf
+                - dmarc
+              type:
+                type: string
+              name:
+                type: string
+              content:
+                type: string
+              priority:
+                type: integer
+              action:
+                type: string
+                enum:
+                - created
+                - updated
+                - unchanged
+                - kept
+                description: '`kept`: the domain''s own record was left as is (an existing DMARC policy).'
+              previous:
+                type: string
+                description: Content an update replaced (an SPF record before Pidgely's include was merged in).
+            required:
+            - purpose
+            - type
+            - name
+            - content
+            - action
+      required:
+      - object
+      - zone
+      - records
+    TemplateBuilderCapabilities:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - template_builder
+        plan:
+          type: string
+        required_plan:
+          type: string
+        builder:
+          type: boolean
+          description: The organization's plan includes the visual builder.
+        ai_available:
+          type: boolean
+          description: AI assist is configured on the server and included in the plan.
+        ai:
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            model:
+              type: string
+            monthly_quota:
+              type: integer
+            used:
+              type: integer
+            remaining:
+              type: integer
+            per_minute:
+              type: integer
+          required:
+          - enabled
+          - monthly_quota
+          - used
+          - remaining
+          - per_minute
+        theme:
+          $ref: '#/components/schemas/BuilderTheme'
+        theme_saved:
+          type: boolean
+        brand:
+          $ref: '#/components/schemas/BrandProfile'
+        brand_saved:
+          type: boolean
+        brand_import:
+          type: boolean
+          description: Brand import is available (builder plan).
+        suggested_website:
+          type: string
+          description: Root site of the first verified sending domain ("" when none).
+      required:
+      - object
+      - plan
+      - required_plan
+      - builder
+      - ai_available
+      - ai
+      - theme
+      - theme_saved
+      - brand
+      - brand_saved
+      - brand_import
+      - suggested_website
+    BuilderBlock:
+      type: object
+      description: 'One row of the e-mail. Fields per type: heading (level, text), text and quote (runs), button (label, href,
+        full_width), image (src, alt, href, width), divider (thickness), spacer (height), columns (2-3 columns of blocks,
+        not nested), list (ordered, items), code (text), social (links), footer (runs, unsubscribe, unsubscribe_label, unsubscribe_url).'
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          enum:
+          - heading
+          - text
+          - button
+          - image
+          - divider
+          - spacer
+          - columns
+          - list
+          - quote
+          - code
+          - social
+          - footer
+        style:
+          $ref: '#/components/schemas/BuilderStyle'
+        level:
+          type: integer
+          enum:
+          - 1
+          - 2
+          - 3
+        text:
+          type: string
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuilderRun'
+        label:
+          type: string
+        href:
+          type: string
+        full_width:
+          type: boolean
+        src:
+          type: string
+        alt:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        thickness:
+          type: integer
+        columns:
+          type: array
+          items:
+            type: object
+            properties:
+              blocks:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BuilderBlock'
+            required:
+            - blocks
+        ordered:
+          type: boolean
+        items:
+          type: array
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/BuilderRun'
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              network:
+                type: string
+                enum:
+                - x
+                - linkedin
+                - instagram
+                - facebook
+                - youtube
+                - github
+                - tiktok
+                - discord
+                - website
+              url:
+                type: string
+            required:
+            - network
+            - url
+        unsubscribe:
+          type: boolean
+        unsubscribe_label:
+          type: string
+        unsubscribe_url:
+          type: string
+          description: Default `{{{PIDGELY_UNSUBSCRIBE_URL}}}` (filled per recipient by broadcasts; pass it as a variable
+            on API sends).
+      required:
+      - type
+    BuilderRender:
+      type: object
+      properties:
+        object:
+          type: string
+          enum:
+          - template_render
+        html:
+          type: string
+        text:
+          type: string
+        variables:
+          type: array
+          items:
+            type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/BuilderIssue'
+        document:
+          $ref: '#/components/schemas/BuilderDocument'
+      required:
+      - object
+      - html
+      - text
+      - variables
+      - issues
+      - document
+    BuilderStyle:
+      type: object
+      properties:
+        align:
+          type: string
+          enum:
+          - left
+          - center
+          - right
+        color:
+          type: string
+        background:
+          type: string
+        font_size:
+          type: integer
+          minimum: 10
+          maximum: 64
+        padding:
+          type: object
+          properties:
+            top:
+              type: integer
+            right:
+              type: integer
+            bottom:
+              type: integer
+            left:
+              type: integer
+          required:
+          - top
+          - right
+          - bottom
+          - left
+    BuilderRun:
+      type: object
+      description: Inline text with optional bold, italic and link (http(s), mailto, tel or a variable tag).
+      properties:
+        text:
+          type: string
+        bold:
+          type: boolean
+        italic:
+          type: boolean
+        href:
+          type: string
+      required:
+      - text
+    BuilderIssue:
+      type: object
+      description: Deliverability or accessibility finding.
+      properties:
+        code:
+          type: string
+          description: all_caps, spam_words, excessive_punctuation, url_shortener, placeholder_link, insecure_link, empty_link,
+            missing_image, missing_alt, missing_unsubscribe, image_only, link_ratio, missing_preview_text, missing_subject,
+            subject_all_caps, subject_spam_words, subject_punctuation, subject_long, too_large, empty_document.
+        severity:
+          type: string
+          enum:
+          - error
+          - warning
+          - info
+        block_id:
+          type: string
+        field:
+          type: string
+        message:
+          type: string
+        detail:
+          type: string
+      required:
+      - code
+      - severity
+      - message

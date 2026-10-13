@@ -2,13 +2,16 @@ import type { FetchLike } from './http';
 import { HttpClient } from './http';
 import { ApiKeys } from './resources/api-keys';
 import { Batch } from './resources/batch';
+import { Brand } from './resources/brand';
 import { Broadcasts } from './resources/broadcasts';
 import { Contacts } from './resources/contacts';
 import { Domains } from './resources/domains';
 import { Emails } from './resources/emails';
 import { Segments } from './resources/segments';
 import { Suppressions } from './resources/suppressions';
+import { TemplateBuilder } from './resources/template-builder';
 import { Templates } from './resources/templates';
+import { Usage } from './resources/usage';
 import { Webhooks } from './resources/webhooks';
 
 export const DEFAULT_BASE_URL = 'https://api.pidgely.com';
@@ -52,8 +55,14 @@ export class Pidgely {
   readonly audiences: Segments;
   readonly broadcasts: Broadcasts;
   readonly templates: Templates;
+  /** Visual builder and AI assist (Pidgely extension, Scale plan). */
+  readonly templateBuilder: TemplateBuilder;
+  /** Brand import from a website (Pidgely extension, Scale plan). */
+  readonly brand: Brand;
   readonly webhooks: Webhooks;
   readonly suppressions: Suppressions;
+  /** Today's usage and quota. */
+  readonly usage: Usage;
 
   /**
    * @param key API key (`pdg_…`). Defaults to the `PIDGELY_API_KEY` environment variable.
@@ -86,7 +95,10 @@ export class Pidgely {
     this.audiences = this.segments;
     this.broadcasts = new Broadcasts(http);
     this.templates = new Templates(http);
+    this.templateBuilder = new TemplateBuilder(http);
+    this.brand = new Brand(http);
     this.webhooks = new Webhooks(http);
     this.suppressions = new Suppressions(http);
+    this.usage = new Usage(http);
   }
 }
