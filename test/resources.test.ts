@@ -209,6 +209,33 @@ const cases: Case[] = [
     body: { email: 'ana@x.com' },
   },
   {
+    name: 'contacts.batch maps every row and segmentId',
+    call: (p) =>
+      p.contacts.batch({
+        contacts: [
+          { email: 'ana@x.com', firstName: 'Ana', lastName: 'Lima', unsubscribed: false, properties: { plan: 'pro' }, segments: [{ id: 'seg_2' }] },
+          { email: 'bo@x.com' },
+        ],
+        segmentId: 'seg_1',
+      }),
+    method: 'POST',
+    path: '/contacts/batch',
+    body: {
+      contacts: [
+        { email: 'ana@x.com', first_name: 'Ana', last_name: 'Lima', unsubscribed: false, properties: { plan: 'pro' }, segments: [{ id: 'seg_2' }] },
+        { email: 'bo@x.com' },
+      ],
+      segment_id: 'seg_1',
+    },
+  },
+  {
+    name: 'contacts.batch without a segment',
+    call: (p) => p.contacts.batch({ contacts: [{ email: 'ana@x.com' }] }),
+    method: 'POST',
+    path: '/contacts/batch',
+    body: { contacts: [{ email: 'ana@x.com' }] },
+  },
+  {
     name: 'contacts.list by segment',
     call: (p) => p.contacts.list({ segmentId: 'seg_1', limit: 50 }),
     method: 'GET',
@@ -376,6 +403,14 @@ const cases: Case[] = [
   { name: 'templates.remove', call: (p) => p.templates.remove('tpl_1'), method: 'DELETE', path: '/templates/tpl_1' },
   { name: 'templates.publish', call: (p) => p.templates.publish('tpl_1'), method: 'POST', path: '/templates/tpl_1/publish' },
   { name: 'templates.duplicate', call: (p) => p.templates.duplicate('tpl_1'), method: 'POST', path: '/templates/tpl_1/duplicate' },
+  {
+    name: 'templates.preview',
+    call: (p) => p.templates.preview('welcome', { variables: { NAME: 'Ana', TRIAL_DAYS: 14 } }),
+    method: 'POST',
+    path: '/templates/welcome/preview',
+    body: { variables: { NAME: 'Ana', TRIAL_DAYS: 14 } },
+  },
+  { name: 'templates.preview without variables', call: (p) => p.templates.preview('tpl 1'), method: 'POST', path: '/templates/tpl%201/preview', body: {} },
   // Webhooks
   {
     name: 'webhooks.create',
@@ -466,6 +501,24 @@ describe('idempotency', () => {
     const { pidgely } = client([{ body: { id: 'e' }, headers: { 'Idempotent-Replayed': 'true' } }]);
     const res = await pidgely.emails.send({ from: 'a@acme.com', to: 'b@x.com', subject: 's', text: 't' }, { idempotencyKey: 'k' });
     expect(res.headers?.['idempotent-replayed']).toBe('true');
+  });
+});
+
+describe('typed responses', () => {
+  it('templates.preview returns the rendered draft', async () => {
+    const preview = { object: 'template_preview', from: 'a@acme.com', subject: 'Hi Ana', reply_to: [], html: '<p>Hi Ana</p>', text: 'Hi Ana', missing_variables: ['TRIAL_DAYS'] };
+    const { pidgely } = client([{ body: preview }]);
+    const res = await pidgely.templates.preview('welcome', { variables: { NAME: 'Ana' } });
+    expect(res.data?.subject).toBe('Hi Ana');
+    expect(res.data?.missing_variables).toEqual(['TRIAL_DAYS']);
+  });
+
+  it('contacts.batch returns saved rows and per-row errors', async () => {
+    const result = { object: 'list', data: [{ index: 0, id: 'ct_1' }], errors: [{ index: 1, message: 'email: is invalid' }] };
+    const { pidgely } = client([{ body: result }]);
+    const res = await pidgely.contacts.batch({ contacts: [{ email: 'ana@x.com' }, { email: 'bad' }] });
+    expect(res.data?.data[0]).toEqual({ index: 0, id: 'ct_1' });
+    expect(res.data?.errors[0]?.index).toBe(1);
   });
 });
 

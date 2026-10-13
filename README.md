@@ -221,6 +221,16 @@ await pidgely.contacts.get({ email: 'ana@example.com' }); // or get(id) / get({ 
 await pidgely.contacts.update({ email: 'ana@example.com', unsubscribed: true }); // kept in sync with the suppression list
 await pidgely.contacts.remove({ email: 'ana@example.com' });
 
+// Upsert up to 1,000 contacts; invalid rows are reported with their index instead of failing the request
+const { data: result } = await pidgely.contacts.batch({
+  contacts: [
+    { email: 'ana@example.com', firstName: 'Ana' },
+    { email: 'bruno@example.com', properties: { plan: 'team' } },
+  ],
+  segmentId, // optional: added to every row
+});
+// result.data → [{ index, id }], result.errors → [{ index, message }]
+
 await pidgely.contacts.segments.list({ email: 'ana@example.com' });
 await pidgely.contacts.segments.add({ email: 'ana@example.com', segmentId });
 await pidgely.contacts.segments.remove({ contactId, segmentId });
@@ -283,6 +293,8 @@ await pidgely.templates
 await pidgely.templates.get('welcome'); // by id or alias (draft)
 await pidgely.templates.update('welcome', { subject: 'Welcome aboard, {{{NAME}}}!' });
 await pidgely.templates.publish('welcome');
+// Render the draft without sending; missing_variables lists variables with no value and no fallback
+const { data: preview } = await pidgely.templates.preview('welcome', { variables: { NAME: 'Ana', TRIAL_DAYS: 30 } });
 await pidgely.templates.duplicate('welcome'); // also chainable with .publish()
 await pidgely.templates.list();
 await pidgely.templates.remove('welcome');
@@ -372,7 +384,7 @@ Pidgely serves the Resend REST API at the same paths, and this SDK mirrors the R
 3. Verify your domain in Pidgely and publish the DNS records it returns.
 4. If you verify webhooks, `await` the `verify` call and pass the `whsec_…` secret from your Pidgely webhook.
 
-The method names, argument shapes, `{ data, error, headers }` results and error names all match. Pidgely additions include `emails.attachments`, `apiKeys.update`, `segments.update/listContacts`, `broadcasts.cancel/duplicate`, `suppressions.*`, the `stream` field on emails, and built-in retries. Some Resend features are not supported yet: open/click tracking, topics, inbound email, automations, events and logs. See the migration guide at [docs.pidgely.com](https://docs.pidgely.com) for the full list.
+The method names, argument shapes, `{ data, error, headers }` results and error names all match. Pidgely additions include `emails.attachments`, `apiKeys.update`, `segments.update/listContacts`, `contacts.batch`, `templates.preview`, `broadcasts.cancel/duplicate`, `suppressions.*`, the `stream` field on emails, and built-in retries. Some Resend features are not supported yet: open/click tracking, topics, inbound email, automations, events and logs. See the migration guide at [docs.pidgely.com](https://docs.pidgely.com) for the full list.
 
 You can also keep the official `resend` package and point it at Pidgely with `RESEND_BASE_URL=https://api.pidgely.com`.
 

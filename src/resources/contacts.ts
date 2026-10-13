@@ -2,7 +2,9 @@ import type { HttpClient } from '../http';
 import { seg } from '../http';
 import { toApi } from '../transform';
 import type {
+  BatchContactsOptions,
   Contact,
+  ContactBatchResult,
   ContactSegmentOptions,
   ContactSegmentsSelector,
   CreateContactOptions,
@@ -76,6 +78,16 @@ export class Contacts {
     const { audienceId, ...rest } = payload;
     const path = audienceId ? `/audiences/${seg(audienceId)}/contacts` : '/contacts';
     return this.http.post(path, req(options, { body: toApi(rest, CONTACT_KEYS) }));
+  }
+
+  /**
+   * `POST /contacts/batch`: creates or updates up to 1,000 contacts by email. Each row is saved independently;
+   * invalid rows are reported in `errors` with their `index` instead of failing the request.
+   */
+  batch(payload: BatchContactsOptions, options?: RequestOptions): Promise<Response<ContactBatchResult>> {
+    const contacts = payload.contacts.map((c) => toApi(c, CONTACT_KEYS, ['audienceId']));
+    const body = toApi({ ...payload, contacts }, { segmentId: 'segment_id' });
+    return this.http.post('/contacts/batch', req(options, { body }));
   }
 
   /** `GET /contacts`, optionally filtered by `segmentId`. */

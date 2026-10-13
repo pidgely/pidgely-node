@@ -98,6 +98,10 @@ export type Template = WithRequired<
   Schemas['Template'],
   'id' | 'alias' | 'name' | 'created_at' | 'updated_at' | 'status' | 'published_at'
 >;
+/** A template draft rendered with variables, returned by `templates.preview`. */
+export type TemplatePreview = WithRequired<Schemas['TemplatePreview'], 'object' | 'from' | 'reply_to'>;
+/** Returned by `contacts.batch`: saved rows in `data`, invalid rows in `errors`, both with their `index`. */
+export type ContactBatchResult = Schemas['ContactBatchResult'];
 
 /** `{ object, id }` returned by most mutations. */
 export interface ObjectId {
@@ -283,6 +287,14 @@ export interface CreateContactOptions {
   /** @deprecated Legacy audiences: creates the contact through `/audiences/{id}/contacts`. */
   audienceId?: string;
 }
+/** One row of `contacts.batch`: created, or updated when the email exists. */
+export type ContactInput = Omit<CreateContactOptions, 'audienceId'>;
+export interface BatchContactsOptions {
+  /** Up to 1,000 contacts, each saved independently. */
+  contacts: ContactInput[];
+  /** Segment every row is added to. */
+  segmentId?: string;
+}
 export type ListContactsOptions = PaginationOptions & {
   segmentId?: string;
   /** @deprecated Use `segmentId`. */
@@ -380,6 +392,10 @@ export interface CreateTemplateOptions {
   variables?: TemplateVariableOptions[];
 }
 export type UpdateTemplateOptions = Partial<CreateTemplateOptions>;
+export interface PreviewTemplateOptions {
+  /** Values to render with; variables that are not given use their fallback value. */
+  variables?: Record<string, string | number>;
+}
 export type ListTemplatesOptions = PaginationOptions;
 
 // ---------------------------------------------------------------------------

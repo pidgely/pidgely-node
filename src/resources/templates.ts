@@ -7,9 +7,11 @@ import type {
   ListTemplatesOptions,
   ObjectId,
   PaginatedData,
+  PreviewTemplateOptions,
   RequestOptions,
   Response,
   Template,
+  TemplatePreview,
   UpdateTemplateOptions,
 } from '../types';
 import { pageQuery, req, withBody } from './shared';
@@ -83,6 +85,14 @@ export class Templates {
   /** `POST /templates/{id_or_alias}/publish`: the published version is what `template: { id }` sends. */
   publish(idOrAlias: string, options?: RequestOptions): Promise<Response<ObjectId>> {
     return this.http.post(`/templates/${seg(idOrAlias)}/publish`, req(options));
+  }
+
+  /**
+   * `POST /templates/{id_or_alias}/preview`: renders the draft with `variables` without sending anything.
+   * `missing_variables` lists the variables with neither a value nor a fallback.
+   */
+  preview(idOrAlias: string, payload: PreviewTemplateOptions = {}, options?: RequestOptions): Promise<Response<TemplatePreview>> {
+    return this.http.post(`/templates/${seg(idOrAlias)}/preview`, req(options, { body: toApi(payload, {}) }));
   }
 
   /** `POST /templates/{id_or_alias}/duplicate`. Chain `.publish()` to publish the copy. */

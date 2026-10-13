@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `templates.preview(idOrAlias, { variables })` renders a template draft with variables (`POST /templates/{id_or_alias}/preview`) and returns a `TemplatePreview`.
+- `contacts.batch({ contacts, segmentId })` creates or updates up to 1,000 contacts in one request (`POST /contacts/batch`) and returns a `ContactBatchResult`; invalid rows are reported in `errors` with their index.
+- Types `PreviewTemplateOptions`, `TemplatePreview`, `BatchContactsOptions`, `ContactInput` and `ContactBatchResult`.
+
 ## [0.1.0] - 2026-10-12
 
 ### Added

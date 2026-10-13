@@ -219,6 +219,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/contacts/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upsert up to 1,000 contacts (Pidgely extension)
+         * @description Each row is saved independently; invalid rows are reported in errors with their index.
+         */
+        post: operations["post_contacts_batch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/contacts/{key}": {
         parameters: {
             query?: never;
@@ -603,6 +623,23 @@ export interface paths {
         put?: never;
         /** Duplicate a template */
         post: operations["post_templates_key_duplicate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates/{key}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Render the draft with variables (Pidgely extension) */
+        post: operations["post_templates_key_preview"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1025,6 +1062,28 @@ export interface components {
             text?: string;
             variables?: components["schemas"]["TemplateVariable"][];
             has_unpublished_versions?: boolean;
+        };
+        ContactBatchResult: {
+            /** @enum {string} */
+            object: "list";
+            data: {
+                index: number;
+                /** Format: uuid */
+                id: string;
+            }[];
+            errors: {
+                index: number;
+                message: string;
+            }[];
+        };
+        TemplatePreview: {
+            object?: string;
+            from?: string;
+            subject: string;
+            reply_to?: string[];
+            html: string;
+            text: string;
+            missing_variables: string[];
         };
     };
     responses: {
@@ -1819,6 +1878,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObjectId"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_contacts_batch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    contacts: components["schemas"]["ContactInput"][];
+                    /**
+                     * Format: uuid
+                     * @description Added to every row.
+                     */
+                    segment_id?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactBatchResult"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -3043,6 +3138,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ObjectId"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Invalid"];
+            429: components["responses"]["TooMany"];
+        };
+    };
+    post_templates_key_preview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Template id or alias */
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    variables?: {
+                        [key: string]: string | number;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplatePreview"];
                 };
             };
             401: components["responses"]["Unauthorized"];
